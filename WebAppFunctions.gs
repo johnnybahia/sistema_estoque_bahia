@@ -201,6 +201,11 @@ function getOrCreateIndiceItensSheet() {
     sheet.getRange(1, 1, 1, 6).setValues(headers);
     sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#4285f4").setFontColor("white");
 
+    // CORREÇÃO: força a coluna Item como texto. Sem isso, itens como "4219/1"
+    // são interpretados pelo Sheets como data (ex.: 01/01/4219) ao serem
+    // gravados, quebrando a busca do saldo desses itens no índice.
+    sheet.getRange("A2:A").setNumberFormat("@");
+
     // Congela primeira linha
     sheet.setFrozenRows(1);
 
@@ -293,6 +298,11 @@ function buildIndiceItensInitial() {
 
   // Escreve TUDO de uma vez (muito mais rápido)
   if (indiceArray.length > 0) {
+    // CORREÇÃO: formata a coluna Item como texto ANTES de escrever, para que
+    // o Sheets não converta itens como "4219/1", "5217/1" etc. em datas
+    // (ex.: "4219/1" virava 01/01/4219), o que fazia o saldo desses itens
+    // não ser encontrado no índice e retornar 0.
+    sheetIndice.getRange(2, 1, indiceArray.length, 1).setNumberFormat("@");
     sheetIndice.getRange(2, 1, indiceArray.length, 6).setValues(indiceArray);
     Logger.log("Índice escrito na aba ÍNDICE_ITENS: " + indiceArray.length + " linhas");
   }
@@ -411,10 +421,14 @@ function updateIndiceItem(itemName, saldo, data, grupo, linhaEstoque, invalidate
 
     if (itemRow > 0) {
       // Atualiza linha existente
+      // CORREÇÃO: força texto na coluna Item antes de gravar, evitando que o
+      // Sheets interprete itens como "4219/1" como data.
+      sheetIndice.getRange(itemRow, 1, 1, 1).setNumberFormat("@");
       sheetIndice.getRange(itemRow, 1, 1, 6).setValues([rowData]);
     } else {
       // Adiciona novo item
       var nextRow = memo.nextRow;
+      sheetIndice.getRange(nextRow, 1, 1, 1).setNumberFormat("@");
       sheetIndice.getRange(nextRow, 1, 1, 6).setValues([rowData]);
       memo.mapa[itemKey] = nextRow;
       memo.nextRow = nextRow + 1;
