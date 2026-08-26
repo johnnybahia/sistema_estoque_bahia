@@ -281,7 +281,13 @@ function buildIndiceItensInitial() {
   for (var key in indiceMap) {
     var item = indiceMap[key];
     indiceArray.push([
-      item.item,
+      // CORREÇÃO: aspas simples à frente forçam o Sheets a tratar o valor como
+      // texto literal (mesmo mecanismo usado ao digitar manualmente). Apenas
+      // setNumberFormat("@") NÃO é suficiente: itens como "4219/1" ou "20/1"
+      // continuavam sendo convertidos para data (ex.: 01/01/4219) mesmo com a
+      // coluna formatada como texto, porque o Sheets decide o tipo do valor
+      // pelo conteúdo no momento do setValues, e não pelo formato da célula.
+      "'" + item.item,
       item.saldo,
       item.data,
       item.grupo,
@@ -417,7 +423,12 @@ function updateIndiceItem(itemName, saldo, data, grupo, linhaEstoque, invalidate
     var itemRow = memo.mapa[itemKey] || -1;
 
     var now = new Date();
-    var rowData = [itemName, saldo, data, grupo, linhaEstoque, now];
+    // CORREÇÃO: aspas simples à frente forçam texto literal (mesmo mecanismo do
+    // Sheets ao digitar manualmente). setNumberFormat("@") sozinho NÃO bastava:
+    // itens como "4219/1" ou "20/1" continuavam virando data (ex.: 01/01/4219)
+    // mesmo com a coluna formatada como texto, pois o Sheets decide o tipo do
+    // valor pelo conteúdo no momento do setValues, não pelo formato da célula.
+    var rowData = ["'" + itemName, saldo, data, grupo, linhaEstoque, now];
 
     if (itemRow > 0) {
       // Atualiza linha existente
