@@ -1240,6 +1240,17 @@ function processMultipleEstoqueItems(itens) {
         var saida = parseFloat(itemData.saida) || 0;
         var newSaldo = _arredondarSaldo(previousSaldo + entrada - saida);
 
+        // CORREÇÃO: atualiza o índice EM MEMÓRIA imediatamente após calcular o
+        // saldo. Sem isso, quando o mesmo item aparece mais de uma vez no
+        // mesmo lote (ex.: dois lotes/lotes diferentes do mesmo item na
+        // mesma NF), as ocorrências seguintes liam o saldo desatualizado
+        // (o de antes do lote), gravando um saldo final incorreto tanto na
+        // ESTOQUE quanto na ÍNDICE_ITENS.
+        indice[itemKey] = indice[itemKey] || {};
+        indice[itemKey].saldo = newSaldo;
+        indice[itemKey].grupo = grupoItem;
+        indice[itemKey].data = now;
+
         var rowData = [
           grupoItem,                    // A: Grupo
           itemData.item,                // B: Item
@@ -1378,6 +1389,17 @@ function processMultipleEstoqueItemsWithGroup(itens) {
         var entrada = parseFloat(itemData.entrada) || 0;
         var saida = parseFloat(itemData.saida) || 0;
         var newSaldo = _arredondarSaldo(previousSaldo + entrada - saida);
+
+        // CORREÇÃO: atualiza o índice EM MEMÓRIA imediatamente após calcular o
+        // saldo. Sem isso, quando o mesmo item aparece mais de uma vez no
+        // mesmo lote (ex.: dois lotes diferentes do mesmo item na mesma NF),
+        // as ocorrências seguintes liam o saldo desatualizado (o de antes do
+        // lote), gravando um saldo final incorreto tanto na ESTOQUE quanto
+        // na ÍNDICE_ITENS.
+        indice[itemKey] = indice[itemKey] || {};
+        indice[itemKey].saldo = newSaldo;
+        indice[itemKey].grupo = grupoItem;
+        indice[itemKey].data = now;
 
         var rowData = [
           grupoItem,                    // A: Grupo
@@ -1564,6 +1586,17 @@ function processMultipleEstoqueItemsWithSaldos(itens) {
         var entrada = parseFloat(itemData.entrada) || 0;
         var saida = parseFloat(itemData.saida) || 0;
         var newSaldo = _arredondarSaldo(previousSaldo + entrada - saida);
+
+        // CORREÇÃO: atualiza o índice EM MEMÓRIA imediatamente após calcular o
+        // saldo. Sem isso, quando o mesmo item aparece mais de uma vez no
+        // mesmo lote (ex.: dois lotes diferentes do mesmo item na mesma NF),
+        // as ocorrências seguintes liam o saldo desatualizado (o de antes do
+        // lote), gravando um saldo final incorreto tanto na ESTOQUE quanto
+        // na ÍNDICE_ITENS.
+        indice[itemKey] = indice[itemKey] || {};
+        indice[itemKey].saldo = newSaldo;
+        indice[itemKey].grupo = grupoItem;
+        indice[itemKey].data = now;
 
         var rowData = [
           grupoItem,                    // A: Grupo
