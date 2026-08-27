@@ -1113,6 +1113,8 @@ function preloadItemHistoryIndex() {
  * Retorna sucesso/erro em formato JSON
  */
 function processEstoqueWebApp(formData) {
+  var lock = LockService.getScriptLock();
+  var lockAcquired = false;
   try {
     // Validações
     var entrada = parseFloat(formData.entrada) || 0;
@@ -1124,6 +1126,14 @@ function processEstoqueWebApp(formData) {
 
     if (entrada === 0 && saida === 0) {
       return { success: false, message: "Informe uma entrada ou saída" };
+    }
+
+    // LOCK: impede que dois lançamentos rodem ao mesmo tempo e um leia o
+    // saldo/índice antes do outro terminar de gravar (condição de corrida
+    // que podia deixar o ÍNDICE_ITENS com saldo inconsistente).
+    lockAcquired = lock.tryLock(30000);
+    if (!lockAcquired) {
+      return { success: false, message: "Sistema ocupado processando outro lançamento. Tente novamente em alguns segundos." };
     }
 
     // Chama a função original processEstoque
@@ -1274,6 +1284,8 @@ function processEstoqueWebApp(formData) {
     PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
     Logger.log("Erro processEstoqueWebApp: " + error);
     return { success: false, message: "Erro ao processar estoque: " + error.message };
+  } finally {
+    if (lockAcquired) lock.releaseLock();
   }
 }
 
@@ -1282,9 +1294,19 @@ function processEstoqueWebApp(formData) {
  * @param {Array} itens - Array de objetos com {item, unidade, nf, obs, entrada, saida, valorUnitario}
  */
 function processMultipleEstoqueItems(itens) {
+  var lock = LockService.getScriptLock();
+  var lockAcquired = false;
   try {
     if (!itens || itens.length === 0) {
       return { success: false, message: "Nenhum item para processar" };
+    }
+
+    // LOCK: impede que dois lançamentos rodem ao mesmo tempo e um leia o
+    // saldo/índice antes do outro terminar de gravar (condição de corrida
+    // que podia deixar o ÍNDICE_ITENS com saldo inconsistente).
+    lockAcquired = lock.tryLock(30000);
+    if (!lockAcquired) {
+      return { success: false, message: "Sistema ocupado processando outro lançamento. Tente novamente em alguns segundos." };
     }
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1415,6 +1437,8 @@ function processMultipleEstoqueItems(itens) {
     PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
     Logger.log("Erro processMultipleEstoqueItems: " + error);
     return { success: false, message: "Erro ao processar itens: " + error.message };
+  } finally {
+    if (lockAcquired) lock.releaseLock();
   }
 }
 
@@ -1424,9 +1448,19 @@ function processMultipleEstoqueItems(itens) {
  * @param {Array} itens - Array de objetos com {item, unidade, nf, obs, entrada, saida, valorUnitario, grupo}
  */
 function processMultipleEstoqueItemsWithGroup(itens) {
+  var lock = LockService.getScriptLock();
+  var lockAcquired = false;
   try {
     if (!itens || itens.length === 0) {
       return { success: false, message: "Nenhum item para processar" };
+    }
+
+    // LOCK: impede que dois lançamentos rodem ao mesmo tempo e um leia o
+    // saldo/índice antes do outro terminar de gravar (condição de corrida
+    // que podia deixar o ÍNDICE_ITENS com saldo inconsistente).
+    lockAcquired = lock.tryLock(30000);
+    if (!lockAcquired) {
+      return { success: false, message: "Sistema ocupado processando outro lançamento. Tente novamente em alguns segundos." };
     }
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1601,6 +1635,8 @@ function processMultipleEstoqueItemsWithGroup(itens) {
     PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
     Logger.log("Erro processMultipleEstoqueItemsWithGroup: " + error);
     return { success: false, message: "Erro ao processar itens: " + error.message };
+  } finally {
+    if (lockAcquired) lock.releaseLock();
   }
 }
 
@@ -1611,9 +1647,19 @@ function processMultipleEstoqueItemsWithGroup(itens) {
  * @returns {Object} - {success, message, itensProcessados: [{item, grupo, entrada, saida, saldoAnterior, novoSaldo}]}
  */
 function processMultipleEstoqueItemsWithSaldos(itens) {
+  var lock = LockService.getScriptLock();
+  var lockAcquired = false;
   try {
     if (!itens || itens.length === 0) {
       return { success: false, message: "Nenhum item para processar" };
+    }
+
+    // LOCK: impede que dois lançamentos rodem ao mesmo tempo e um leia o
+    // saldo/índice antes do outro terminar de gravar (condição de corrida
+    // que podia deixar o ÍNDICE_ITENS com saldo inconsistente).
+    lockAcquired = lock.tryLock(30000);
+    if (!lockAcquired) {
+      return { success: false, message: "Sistema ocupado processando outro lançamento. Tente novamente em alguns segundos." };
     }
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1822,6 +1868,8 @@ function processMultipleEstoqueItemsWithSaldos(itens) {
     PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
     Logger.log("Erro processMultipleEstoqueItemsWithSaldos: " + error);
     return { success: false, message: "Erro ao processar itens: " + error.message };
+  } finally {
+    if (lockAcquired) lock.releaseLock();
   }
 }
 
@@ -2189,12 +2237,22 @@ function atualizarTotalEmbarcadoWebApp() {
  * apagarUltimaLinhaWebApp: Wrapper para apagar última linha
  */
 function apagarUltimaLinhaWebApp() {
+  var lock = LockService.getScriptLock();
+  var lockAcquired = false;
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheetEstoque = ss.getSheetByName("ESTOQUE");
 
     if (!sheetEstoque) {
       return { success: false, message: "Sheet ESTOQUE não encontrada" };
+    }
+
+    // LOCK: impede que um lançamento seja processado bem no meio da exclusão
+    // (ex.: leria a última linha antes dela ser removida, ou o índice antes
+    // de ser corrigido), evitando que a ÍNDICE_ITENS fique inconsistente.
+    lockAcquired = lock.tryLock(30000);
+    if (!lockAcquired) {
+      return { success: false, message: "Sistema ocupado processando outra operação. Tente novamente em alguns segundos." };
     }
 
     var lastRow = sheetEstoque.getLastRow();
@@ -2218,6 +2276,8 @@ function apagarUltimaLinhaWebApp() {
   } catch (error) {
     Logger.log("Erro apagarUltimaLinhaWebApp: " + error);
     return { success: false, message: "Erro ao apagar linha: " + error.message };
+  } finally {
+    if (lockAcquired) lock.releaseLock();
   }
 }
 
