@@ -663,16 +663,39 @@ function apagarUltimaLinha() {
     SpreadsheetApp.getUi().alert("A aba ESTOQUE não foi encontrada.");
     return;
   }
-  var lastRow = sheetEstoque.getLastRow();
-  if (lastRow < 2) {
-    SpreadsheetApp.getUi().alert("Não há dados para apagar.");
+
+  // LOCK: impede que um lançamento (via Web App) seja processado bem no meio
+  // da exclusão, evitando que a ÍNDICE_ITENS fique inconsistente.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    SpreadsheetApp.getUi().alert("Sistema ocupado processando outra operação. Tente novamente em alguns segundos.");
     return;
   }
-  PropertiesService.getScriptProperties().setProperty("editingViaScript", "true");
-  sheetEstoque.deleteRow(lastRow);
-  PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
-  backupEstoqueData();
-  SpreadsheetApp.getUi().alert("Última linha apagada com sucesso.");
+
+  try {
+    var lastRow = sheetEstoque.getLastRow();
+    if (lastRow < 2) {
+      SpreadsheetApp.getUi().alert("Não há dados para apagar.");
+      return;
+    }
+    // Guarda o item da linha que será apagada para poder corrigir o
+    // ÍNDICE_ITENS logo em seguida (ver restoreIndiceItemAfterDelete em
+    // WebAppFunctions.gs), senão o índice fica com o saldo/data do
+    // lançamento apagado e o próximo lançamento do mesmo item parte dele.
+    var deletedItem = sheetEstoque.getRange(lastRow, 2).getValue();
+
+    PropertiesService.getScriptProperties().setProperty("editingViaScript", "true");
+    sheetEstoque.deleteRow(lastRow);
+    PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
+    backupEstoqueData();
+
+    restoreIndiceItemAfterDelete(sheetEstoque, deletedItem, lastRow - 1);
+    invalidateCacheOpt();
+
+    SpreadsheetApp.getUi().alert("Última linha apagada com sucesso.");
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
