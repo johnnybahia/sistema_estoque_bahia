@@ -668,10 +668,20 @@ function apagarUltimaLinha() {
     SpreadsheetApp.getUi().alert("Não há dados para apagar.");
     return;
   }
+  // Guarda o item da linha que será apagada para poder corrigir o
+  // ÍNDICE_ITENS logo em seguida (ver restoreIndiceItemAfterDelete em
+  // WebAppFunctions.gs), senão o índice fica com o saldo/data do
+  // lançamento apagado e o próximo lançamento do mesmo item parte dele.
+  var deletedItem = sheetEstoque.getRange(lastRow, 2).getValue();
+
   PropertiesService.getScriptProperties().setProperty("editingViaScript", "true");
   sheetEstoque.deleteRow(lastRow);
   PropertiesService.getScriptProperties().deleteProperty("editingViaScript");
   backupEstoqueData();
+
+  restoreIndiceItemAfterDelete(sheetEstoque, deletedItem, lastRow - 1);
+  invalidateCacheOpt();
+
   SpreadsheetApp.getUi().alert("Última linha apagada com sucesso.");
 }
 

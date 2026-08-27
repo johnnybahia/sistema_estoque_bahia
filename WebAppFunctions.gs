@@ -458,6 +458,77 @@ function updateIndiceItem(itemName, saldo, data, grupo, linhaEstoque, invalidate
 }
 
 /**
+ * removeIndiceItem: Remove um item da aba ÍNDICE_ITENS.
+ * Usado quando a última ocorrência de um item na aba ESTOQUE é apagada e
+ * não existe nenhum registro anterior para colocar no lugar.
+ */
+function removeIndiceItem(itemKey) {
+  try {
+    var sheetIndice = getOrCreateIndiceItensSheet();
+    var lastRow = sheetIndice.getLastRow();
+    if (lastRow < 2) return;
+
+    var items = sheetIndice.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < items.length; i++) {
+      if (items[i][0] && items[i][0].toString().trim().toUpperCase() === itemKey) {
+        sheetIndice.deleteRow(i + 2);
+        break;
+      }
+    }
+
+    var cache = CacheService.getScriptCache();
+    cache.remove("indiceItensCache");
+  } catch (e) {
+    Logger.log("ERRO ao remover item do índice: " + e.message);
+  }
+}
+
+/**
+ * restoreIndiceItemAfterDelete: Corrige a aba ÍNDICE_ITENS depois que a
+ * última linha da aba ESTOQUE é apagada (ex.: "Apagar Última Linha").
+ *
+ * BUG CORRIGIDO: apagar a última linha só removia o dado de ESTOQUE, mas o
+ * ÍNDICE_ITENS continuava com o saldo/data/linha do lançamento já apagado.
+ * Ao lançar novamente o mesmo item, o sistema partia desse registro errado
+ * (que nem existe mais em ESTOQUE) em vez do lançamento anterior correto.
+ *
+ * Aqui procuramos, de baixo para cima, a ocorrência anterior do item que
+ * acabou de ser apagado (limitando a busca até newLastRow, ou seja, sem
+ * olhar a linha que já foi excluída) e realimentamos o índice com ela. Se
+ * não existir nenhuma ocorrência anterior, o item é removido do índice.
+ */
+function restoreIndiceItemAfterDelete(sheetEstoque, itemName, newLastRow) {
+  if (!itemName) return;
+  var itemKey = itemName.toString().trim().toUpperCase();
+
+  var previous = null;
+  if (newLastRow >= 2) {
+    var finder = sheetEstoque.getRange(2, 2, newLastRow - 1, 1)
+      .createTextFinder(itemName.toString().trim())
+      .matchEntireCell(true)
+      .matchCase(false);
+    var found = finder.findPrevious();
+    if (found) {
+      var row = found.getRow();
+      var rowValues = sheetEstoque.getRange(row, 1, 1, 10).getValues()[0];
+      previous = {
+        item: rowValues[1],
+        saldo: rowValues[9],
+        data: rowValues[3],
+        grupo: rowValues[0],
+        linha: row
+      };
+    }
+  }
+
+  if (previous) {
+    updateIndiceItem(previous.item, previous.saldo, previous.data, previous.grupo, previous.linha);
+  } else {
+    removeIndiceItem(itemKey);
+  }
+}
+
+/**
  * getLastRegistrationFromIndex: Busca registro usando a aba ÍNDICE_ITENS
  * SUPER RÁPIDO: O(1) com cache, sem ler ESTOQUE
  * INICIALIZAÇÃO AUTOMÁTICA: Se o índice não existir, cria automaticamente
@@ -2131,8 +2202,15 @@ function apagarUltimaLinhaWebApp() {
       return { success: false, message: "Nenhuma linha para apagar" };
     }
 
+    // Guarda o item da linha que será apagada para poder corrigir o
+    // ÍNDICE_ITENS logo em seguida (ver restoreIndiceItemAfterDelete).
+    var deletedItem = sheetEstoque.getRange(lastRow, 2).getValue();
+
     sheetEstoque.deleteRow(lastRow);
     backupEstoqueData();
+
+    restoreIndiceItemAfterDelete(sheetEstoque, deletedItem, lastRow - 1);
+
     invalidateCache();
     invalidateCacheOpt();
 
