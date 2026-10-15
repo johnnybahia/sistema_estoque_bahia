@@ -1069,6 +1069,7 @@ function getUltimosLancamentos(itemNome) {
           unidade: row[2],
           data: dataStr,
           dataObj: dataObj || new Date(0),
+          seq: i,
           nf: row[4],
           obs: row[5],
           pedido: row[6],
@@ -1084,7 +1085,7 @@ function getUltimosLancamentos(itemNome) {
 
     // Ordena por data (mais recente primeiro)
     lancamentos.sort(function(a, b) {
-      return b.dataObj.getTime() - a.dataObj.getTime();
+      return (b.dataObj.getTime() - a.dataObj.getTime()) || (b.seq - a.seq);
     });
 
     // Retorna apenas os últimos 20
@@ -3081,7 +3082,8 @@ function buscarProduto(item, dataInicio, dataFim) {
       var registro = {
         row: data[i],
         background: backgrounds[i][0], // Cor da primeira coluna (toda linha tem mesma cor)
-        date: dataMovimento // Para ordenação (usa Date object real)
+        date: dataMovimento, // Para ordenação (usa Date object real)
+        seq: i
       };
       if (ehExato) exatos.push(registro);
       else parciais.push(registro);
@@ -3096,7 +3098,7 @@ function buscarProduto(item, dataInicio, dataFim) {
 
     // Ordena do mais novo para o mais antigo (descendente)
     results.sort(function(a, b) {
-      return b.date.getTime() - a.date.getTime();
+      return (b.date.getTime() - a.date.getTime()) || (b.seq - a.seq);
     });
 
     // Extrai apenas as linhas e cores
@@ -3271,13 +3273,14 @@ function mostrarTodosProdutos(dataInicio, dataFim) {
       results.push({
         row: data[i],
         background: backgrounds[i][0],
-        date: dataMovimento // Usa Date object real
+        date: dataMovimento, // Usa Date object real
+        seq: i
       });
     }
 
     // Ordena do mais novo para o mais antigo (descendente)
     results.sort(function(a, b) {
-      return b.date.getTime() - a.date.getTime();
+      return (b.date.getTime() - a.date.getTime()) || (b.seq - a.seq);
     });
 
     // Extrai apenas as linhas e cores

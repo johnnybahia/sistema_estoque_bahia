@@ -1799,7 +1799,7 @@
             cursor.continue();
           } else {
             // Ordena por data (mais novo primeiro) e limita
-            results.sort((a, b) => b.date - a.date);
+            results.sort((a, b) => (b.date - a.date) || ((b.id || 0) - (a.id || 0)));
             resolve(results.slice(0, limit));
           }
         };
@@ -2052,11 +2052,16 @@
         index[itemKey].history.push({
           row: record.row,
           date: record.date,
+          seq: record.id || 0,
           background: record.background
         });
 
-        // Atualiza info se mais recente
-        if (record.date > new Date(index[itemKey].info.lastDate).getTime()) {
+        // Atualiza info se mais recente (empate de data: linha mais nova vence)
+        const inf = index[itemKey].info;
+        const seq = record.id || 0;
+        if (inf._ts === undefined || record.date > inf._ts || (record.date === inf._ts && seq >= inf._seq)) {
+          inf._ts = record.date;
+          inf._seq = seq;
           index[itemKey].info.lastDate = record.row[3];
           index[itemKey].info.lastStock = record.row[9];
           index[itemKey].info.group = record.row[0];
@@ -2065,7 +2070,7 @@
 
       // Ordena histórico de cada item
       for (const key in index) {
-        index[key].history.sort((a, b) => b.date - a.date);
+        index[key].history.sort((a, b) => (b.date - a.date) || (b.seq - a.seq));
         index[key].history = index[key].history.slice(0, 20); // Mantém últimos 20
       }
 
@@ -2306,7 +2311,7 @@
 
       // Cria cópia e ordena por data (mais novo primeiro)
       const sortedHistory = historyData.history.slice().sort(function(a, b) {
-        return b.date - a.date;
+        return (b.date - a.date) || ((b.seq || 0) - (a.seq || 0));
       });
 
       const limitedHistory = sortedHistory.slice(0, maxRecords);
@@ -2900,6 +2905,7 @@
       // Filtra por item (exato primeiro, parcial como fallback) e por data
       for (let i = 0; i < allEstoqueData.length; i++) {
         const record = allEstoqueData[i];
+        record.seq = i;
         if (!record.row[1]) continue;
         const itemNormalizado = normalizeString(record.row[1]).trim().replace(/\s+/g, ' '); // Coluna Item
 
@@ -2937,7 +2943,7 @@
 
       // Ordena do mais novo para o mais antigo
       results.sort(function(a, b) {
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
+        return (new Date(b.date).getTime() - new Date(a.date).getTime()) || ((b.seq || 0) - (a.seq || 0));
       });
 
       // Prepara o resultado no formato esperado
