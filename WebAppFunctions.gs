@@ -991,6 +991,7 @@ function _buildItemHistoryIndex() {
     index[itemKey].history.push({
       row: row,
       date: rowDate.getTime(),
+      seq: i,
       background: background
     });
 
@@ -1008,7 +1009,7 @@ function _buildItemHistoryIndex() {
   var itemCount = 0;
   for (var key in index) {
     index[key].history.sort(function(a, b) {
-      return b.date - a.date;
+      return (b.date - a.date) || (b.seq - a.seq);
     });
 
     // Limita ao máximo de registros
@@ -1044,7 +1045,7 @@ function getItemHistory(item) {
 
   // Ordena por data (mais novo primeiro) antes de retornar
   var sortedHistory = itemData.history.slice().sort(function(a, b) {
-    return b.date - a.date;
+    return (b.date - a.date) || (b.seq - a.seq);
   });
 
   var rows = [];
@@ -2063,6 +2064,7 @@ function gerarRelatorioEstoqueWebApp(dataInicio, dataFim) {
         results.push({
           row: rowWithMotivo,
           date: dataMovimento,
+          seq: i,
           background: backgrounds[i][0] || "#ffffff"
         });
       }
@@ -2074,7 +2076,7 @@ function gerarRelatorioEstoqueWebApp(dataInicio, dataFim) {
 
     // Ordena por data decrescente (mais recente primeiro)
     results.sort(function(a, b) {
-      return b.date - a.date;
+      return (b.date - a.date) || (b.seq - a.seq);
     });
 
     return {
